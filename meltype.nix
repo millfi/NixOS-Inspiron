@@ -1,0 +1,33 @@
+{ config, pkgs, ... }:
+
+let
+  meltype = import ./meltype-package.nix { inherit pkgs; };
+in
+{
+  # Installed and built as part of the NixOS system, for all users.
+  i18n.inputMethod = {
+    enable = true;
+    type = "fcitx5";
+    fcitx5 = {
+      addons = [ meltype ];
+      waylandFrontend = true;
+      settings.inputMethod = {
+        "Groups/0" = {
+          Name = "Default";
+          "Default Layout" = "jp";
+          DefaultIM = "meltype";
+        };
+        "Groups/0/Items/0" = { Name = "meltype"; Layout = ""; };
+        GroupOrder."0" = "Default";
+      };
+    };
+  };
+
+  # KWin starts Fcitx with the Wayland input-method connection at next login.
+  # This is a system default; per-user KDE settings can still override it.
+  environment.etc."xdg/kwinrc".text = ''
+    [Wayland]
+    InputMethod=${config.i18n.inputMethod.package}/share/applications/org.fcitx.Fcitx5.desktop
+    VirtualKeyboardEnabled=true
+  '';
+}
