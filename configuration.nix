@@ -104,6 +104,9 @@
     git
     fdk_aac
     ffmpeg
+    gh
+    msedit
+    zed-editor
   ];
 
   # Keep npm global installs in the user home, outside the read-only Nix store.
