@@ -102,6 +102,8 @@
     codex
     kdePackages.powerdevil
     git
+    fdk_aac
+    ffmpeg
   ];
 
   # Keep npm global installs in the user home, outside the read-only Nix store.
