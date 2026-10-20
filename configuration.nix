@@ -109,6 +109,8 @@
     gh
     msedit
     zed-editor
+    # AI Agentにsudo承認画面を出すために必要
+    kdePackages.kdialog
   ];
 
   environment.sessionVariables = rec {

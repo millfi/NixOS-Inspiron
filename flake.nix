@@ -1,12 +1,19 @@
 {
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
-  outputs = { nixpkgs, ... }: {
-    nixosConfigurations.inspiron-13-5310 = nixpkgs.lib.nixosSystem {
+  outputs = { nixpkgs, ... }:
+    let
       system = "x86_64-linux";
-      modules = [
-        ./configuration.nix
-      ];
+      pkgs = nixpkgs.legacyPackages.${system};
+    in
+    {
+      packages.${system}.meltype = pkgs.callPackage ./packages/meltype { };
+
+      nixosConfigurations.inspiron-13-5310 = nixpkgs.lib.nixosSystem {
+        inherit system;
+        modules = [
+          ./configuration.nix
+        ];
+      };
     };
-  };
 }

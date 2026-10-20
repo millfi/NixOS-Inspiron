@@ -1,7 +1,7 @@
 { config, pkgs, ... }:
 
 let
-  meltype = import ./meltype-package.nix { inherit pkgs; };
+  meltype = pkgs.callPackage ./packages/meltype { };
 in
 {
   # Installed and built as part of the NixOS system, for all users.
