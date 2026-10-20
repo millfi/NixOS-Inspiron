@@ -9,7 +9,10 @@
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
       ./meltype.nix
+      ./keyboard-diagnostics/nixos-module.nix
     ];
+
+  services.keyboardDiagnostics.enable = true;
 
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   # Use the systemd-boot EFI boot loader.
@@ -76,8 +79,10 @@
   };
 
   # Enable touchpad support (enabled default in most desktopManager).
-  # services.libinput.enable = true;
+  services.libinput.enable = true;
 
+  hardware.bluetooth.enable = true;
+  services.blueman.enable = true;
   # Define a user account. Don't forget to set a password with ‘passwd’.
   users.users."millfi" = {
     isNormalUser = true;
