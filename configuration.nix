@@ -114,9 +114,6 @@
   environment.sessionVariables = rec {
     # Running Zed editor as root or via sudo
     ZED_ALLOW_ROOT = "true";
-    PATH = [
-      "${XDG_BIN_HOME}"
-    ];
   };
 
   # Keep npm global installs in the user home, outside the read-only Nix store.
