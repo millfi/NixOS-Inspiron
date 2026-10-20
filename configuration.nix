@@ -78,12 +78,11 @@
     # jack.enable = true;
   };
 
-  # Enable touchpad support (enabled default in most desktopManager).
+  # Enable hardware support
   services.libinput.enable = true;
-
   hardware.bluetooth.enable = true;
   services.blueman.enable = true;
-  # Define a user account. Don't forget to set a password with ‘passwd’.
+  # Define a user account
   users.users."millfi" = {
     isNormalUser = true;
     description = "millfi";
@@ -93,15 +92,13 @@
     #  thunderbird
     ];
   };
+
   services.flatpak.enable = true;
-  # Install firefox.
   programs.firefox.enable = true;
 
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
 
-  # List packages installed in system profile.
-  # You can use https://search.nixos.org/ to find more packages (and options).
   environment.systemPackages = with pkgs; [
     nodejs_26
     codex
@@ -113,6 +110,14 @@
     msedit
     zed-editor
   ];
+
+  environment.sessionVariables = rec {
+    # Running Zed editor as root or via sudo
+    ZED_ALLOW_ROOT = "true";
+    PATH = [
+      "${XDG_BIN_HOME}"
+    ];
+  };
 
   # Keep npm global installs in the user home, outside the read-only Nix store.
   # https://docs.npmjs.com/resolving-eacces-permissions-errors-when-installing-packages-globally/
