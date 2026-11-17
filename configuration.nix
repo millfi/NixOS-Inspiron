@@ -8,7 +8,7 @@
   imports =
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
-      ./meltype.nix
+      (import ./meltype.nix { inherit pkgs; }).nixosModule
       ./keyboard-diagnostics/nixos-module.nix
     ];
 
@@ -56,6 +56,15 @@
   # Enable the KDE Plasma Desktop Environment.
   services.displayManager.sddm.enable = true;
   services.desktopManager.plasma6.enable = true;
+
+  # Enable ShojiWM (selectable as a Wayland session in SDDM).
+  programs.shojiwm = {
+    enable = true;
+    initConfig = {
+      enable = true;
+      users = [ "millfi" ];
+    };
+  };
 
   # Configure keymap in X11
   services.xserver.xkb = {

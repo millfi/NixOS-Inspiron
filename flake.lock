@@ -18,7 +18,28 @@
     },
     "root": {
       "inputs": {
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "shojiwm": "shojiwm"
+      }
+    },
+    "shojiwm": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1794889480,
+        "narHash": "sha256-EsOGaKmTgnTh8PmAf1b7ELQjFfE7BWdFt88S8Uke1zE=",
+        "owner": "bea4dev",
+        "repo": "ShojiWM",
+        "rev": "60e8a74479967bd435b266b98fd5df6ab9220c89",
+        "type": "github"
+      },
+      "original": {
+        "owner": "bea4dev",
+        "repo": "ShojiWM",
+        "type": "github"
       }
     }
   },
