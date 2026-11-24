@@ -62,6 +62,23 @@ let
       };
     };
 
+    # Keep the desktop entry's window class through AntiWebUI's app parser.
+    # Flatpak Vivaldi uses Vivaldi-flatpak instead of its desktop file ID.
+    postPatch = ''
+      substituteInPlace "$cargoDepsCopy/anti-webui-wayland-shell-0.1.0/src/apps.rs" \
+        --replace-fail '    pub generic_name: Option<String>,' \
+          '    pub generic_name: Option<String>,
+          pub startup_wm_class: Option<String>,' \
+        --replace-fail '        generic_name: g.string("GenericName"),' \
+          '        generic_name: g.string("GenericName"),
+              startup_wm_class: g.string("StartupWMClass"),'
+      substituteInPlace src/appinfo.rs \
+        --replace-fail '        .or_else(|| all.iter().find(|a| last(bare(&a.id)) == last(&lower)))' \
+          '        .or_else(|| all.iter().find(|a| a.startup_wm_class.as_deref()
+              .is_some_and(|class| class.eq_ignore_ascii_case(app_id))))
+              .or_else(|| all.iter().find(|a| last(bare(&a.id)) == last(&lower)))'
+    '';
+
     nativeBuildInputs = [
       pkg-config
       makeWrapper
@@ -98,10 +115,78 @@ in
   package = shoji-bar-4;
 
   nixosModule =
-    { config, lib, ... }:
+    { config, lib, options, ... }:
     let
       cfg = config.programs.shojiwm;
       desktopCfg = config.programs.shojiwmDesktop;
+
+      # Wrap the installed compositor without rebuilding it. Preserve the
+      # upstream module's xwayland overrides and its single SDDM session entry.
+      sessionPackage = lib.makeOverridable (
+        { xwayland ? pkgs.xwayland, xwaylandSatellite ? null }:
+        let
+          compositor = options.programs.shojiwm.package.default.override {
+            inherit xwayland xwaylandSatellite;
+          };
+          launcher = pkgs.writeShellScript "shojiwm-session" ''
+            if [[ " $* " != *" --tty "* ]]; then
+              unset SHOJIWM_MANAGED_SESSION
+              exec ${compositor}/bin/shoji_wm "$@"
+            fi
+
+            export SHOJIWM_MANAGED_SESSION=1
+            cleanup() {
+              ${pkgs.systemd}/bin/systemctl --user stop shojiwm-session.target || true
+            }
+            trap cleanup EXIT
+            ${compositor}/bin/shoji_wm "$@" &
+            compositor_pid=$!
+            trap 'kill -TERM "$compositor_pid" 2>/dev/null || true' HUP INT TERM
+            wait "$compositor_pid"
+            result=$?
+            # A signal can interrupt wait before the compositor has exited.
+            if kill -0 "$compositor_pid" 2>/dev/null; then
+              wait "$compositor_pid"
+              result=$?
+            fi
+            exit "$result"
+          '';
+        in
+        pkgs.symlinkJoin {
+          name = "shojiwm-session-${compositor.version}";
+          paths = [ compositor ];
+          postBuild = ''
+            rm "$out/bin/shoji_wm"
+            ln -s ${launcher} "$out/bin/shoji_wm"
+            rm "$out/share/wayland-sessions/shojiwm.desktop"
+            substitute ${compositor}/share/wayland-sessions/shojiwm.desktop \
+              "$out/share/wayland-sessions/shojiwm.desktop" \
+              --replace-fail "Exec=${compositor}/bin/shoji_wm" "Exec=$out/bin/shoji_wm"
+          '';
+          passthru.providedSessions = [ "shojiwm" ];
+        }
+      ) { };
+
+      desktopShell = pkgs.writeShellScriptBin "shojiwm-desktop-shell" ''
+        # ShojiWM has created its Wayland socket before starting this command.
+        # Nested compositors must not take over the host graphical session.
+        if [[ "''${SHOJIWM_MANAGED_SESSION:-}" == 1 ]]; then
+          env_keys=()
+          for key in WAYLAND_DISPLAY DISPLAY SHOJIWM_SOCKET XDG_CURRENT_DESKTOP \
+            XDG_SESSION_DESKTOP XDG_SESSION_TYPE DESKTOP_SESSION XDG_MENU_PREFIX \
+            PAM_KWALLET5_LOGIN; do
+            if [[ -v "$key" ]]; then env_keys+=("$key"); fi
+          done
+          ${pkgs.dbus}/bin/dbus-update-activation-environment --systemd "''${env_keys[@]}"
+          ${lib.optionalString desktopCfg.enableKWallet ''
+            if [[ -n "''${PAM_KWALLET5_LOGIN:-}" && -S "$PAM_KWALLET5_LOGIN" ]]; then
+              ${pkgs.kdePackages.kwallet-pam}/libexec/pam_kwallet_init
+            fi
+          ''}
+          ${pkgs.systemd}/bin/systemctl --user start shojiwm-session.target
+        fi
+        exec ${shoji-bar-4}/bin/shoji-bar-4 "$@"
+      '';
 
       patchScript = pkgs.writeScript "shojiwm-patch-config" ''
         #!${python3}/bin/python3
@@ -123,6 +208,7 @@ in
         for old_shell in (
             'const SHELL = "~/.config/shoji-bar-4/target/release/shoji-bar-4";',
             f'const SHELL = "{home_dir}/.config/shoji-bar-4/target/release/shoji-bar-4";',
+            'const SHELL = "shoji-bar-4";',
         ):
             updated = updated.replace(old_shell, f'const SHELL = "{shell_cmd}";')
 
@@ -168,6 +254,12 @@ in
           description = "Install shoji-bar-4 and its runtime dependencies for ShojiWM.";
         };
 
+        enableKWallet = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Unlock KWallet with PAM and use its Secret portal in ShojiWM.";
+        };
+
         terminal = lib.mkOption {
           type = lib.types.str;
           default = "konsole";
@@ -182,8 +274,11 @@ in
       };
 
       config = lib.mkIf (cfg.enable && desktopCfg.enableShell) {
+        programs.shojiwm.package = lib.mkDefault sessionPackage;
+
         environment.systemPackages = [
           shoji-bar-4
+          desktopShell
           cliphist
           wl-clipboard
           zenity
@@ -193,6 +288,19 @@ in
 
         services.upower.enable = lib.mkDefault true;
         services.power-profiles-daemon.enable = lib.mkDefault true;
+
+        systemd.user.targets.shojiwm-session = {
+          description = "ShojiWM graphical session";
+          bindsTo = [ "graphical-session.target" ];
+          wants = [ "graphical-session-pre.target" ];
+          after = [ "graphical-session-pre.target" ];
+        };
+
+        security.pam.services.login.kwallet.enable = lib.mkIf desktopCfg.enableKWallet true;
+        xdg.portal = lib.mkIf (cfg.portal.enable && desktopCfg.enableKWallet) {
+          extraPortals = [ pkgs.kdePackages.kwallet ];
+          config.shojiwm."org.freedesktop.impl.portal.Secret" = [ "kwallet" ];
+        };
 
         system.activationScripts.shojiwm-desktop-config = lib.mkIf cfg.initConfig.enable (
           lib.stringAfter [ "shojiwm-init-config" ] (
@@ -209,7 +317,7 @@ in
                     ${patchScript} \
                     ${lib.escapeShellArg indexPath} \
                     ${lib.escapeShellArg home} \
-                    "shoji-bar-4" \
+                    "shojiwm-desktop-shell" \
                     ${lib.escapeShellArg desktopCfg.terminal} \
                     ${lib.escapeShellArg desktopCfg.browser}
                 fi

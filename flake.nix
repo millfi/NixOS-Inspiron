@@ -10,6 +10,7 @@
     in
     {
       packages.${system} = {
+        cpu-monitor = pkgs.callPackage ./cpu-monitor { };
         meltype = (import ./meltype.nix { inherit pkgs; }).package;
         shoji-bar-4 = (import ./shojiwm.nix { inherit pkgs; }).package;
       };

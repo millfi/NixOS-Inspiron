@@ -17,14 +17,21 @@
 - `shoji-bar-4`（Rust でビルドされ、Wayland / Vulkan / OpenGL / Fontconfig / PAM ライブラリをラップ済み）
 - ランタイム依存パッケージ: `cliphist`, `wl-clipboard`, `zenity`, `playerctl`, `bibata-cursors`
 - システムサービス: `services.upower`, `services.power-profiles-daemon`
+- SDDM の ShojiWM セッションで、Wayland 起動後に `shojiwm-session.target` を開始し、終了時に停止（`graphical-session.target` と連携）
+- KWallet の PAM ロック解除と Secret ポータルを ShojiWM でも使用（`programs.shojiwmDesktop.enableKWallet = false;` で無効化可能）
+- Flatpak アプリの `StartupWMClass` を照合し、Vivaldi などをドックに固定できるように補正
 - `~/.config/shojiwm/src/index.tsx` の初回自動補正:
-  - `SHELL` を Nix 管理の `shoji-bar-4` に差し替え（手動 `cargo build` 不要）
+  - `SHELL` を Nix 管理の `shojiwm-desktop-shell` に差し替え（セッション初期化後に `shoji-bar-4` を起動。既存の標準設定も更新）
   - 未導入になりやすい `kitty` / `google-chrome-stable` を既定端末・ブラウザ（既定: `konsole` / `firefox`）に差し替え
   - キーボードレイアウトを JIS（`layout: "jp"`）に設定し、上流既定の Razer キーボード向け US 上書きを除去
 
 ---
 
 ## 2. 新しい PC への導入手順
+
+既存環境でこの修正を適用した場合は、保存作業を済ませてログアウトし、SDDM から ShojiWM に入り直してください。
+ブラウザの認証情報の保存方式は変更せず、既存の KWallet を利用します。
+メールの再ログインが再発しないことは、Vivaldi を終了してから OS を再起動して確認してください。
 
 ### 前提条件
 

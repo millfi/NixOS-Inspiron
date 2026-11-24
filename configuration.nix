@@ -125,6 +125,7 @@
   environment.systemPackages = with pkgs; [
     nodejs_26
     codex
+    (pkgs.callPackage ./cpu-monitor { })
     kdePackages.powerdevil
     git
     fdk_aac
