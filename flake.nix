@@ -9,7 +9,10 @@
       pkgs = nixpkgs.legacyPackages.${system};
     in
     {
-      packages.${system}.meltype = (import ./meltype.nix { inherit pkgs; }).package;
+      packages.${system} = {
+        meltype = (import ./meltype.nix { inherit pkgs; }).package;
+        shoji-bar-4 = (import ./shojiwm.nix { inherit pkgs; }).package;
+      };
 
       nixosConfigurations.inspiron-13-5310 = nixpkgs.lib.nixosSystem {
         inherit system;

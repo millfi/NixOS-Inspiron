@@ -9,6 +9,7 @@
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
       (import ./meltype.nix { inherit pkgs; }).nixosModule
+      (import ./shojiwm.nix { inherit pkgs; }).nixosModule
       ./keyboard-diagnostics/nixos-module.nix
     ];
 
