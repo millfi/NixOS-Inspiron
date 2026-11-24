@@ -11,9 +11,22 @@
       (import ./meltype.nix { inherit pkgs; }).nixosModule
       (import ./shojiwm.nix { inherit pkgs; }).nixosModule
       ./keyboard-diagnostics/nixos-module.nix
+      ./cpu-pl1/nixos-module.nix
     ];
 
   services.keyboardDiagnostics.enable = true;
+
+  services.cpuPl1 = {
+    enable = true;
+    powerLimits = {
+      power-saver = 18;
+      balanced = 28;
+      performance = 35;
+    };
+    pollIntervalSeconds = 2;
+    temperatureLimitCelsius = 88;
+    temperatureResumeCelsius = 80;
+  };
 
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   # Use the systemd-boot EFI boot loader.
