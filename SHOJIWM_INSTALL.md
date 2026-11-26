@@ -197,7 +197,25 @@ sudo nixos-rebuild switch --flake /etc/nixos#<ホスト名>
 
 ### 設定を直したのに `shoji-bar-4` が自動起動しない
 
-- `index.tsx` の `shell` プロセスは `runPolicy: "once-per-session"` のため、同じセッション内でホットリロードしただけでは再起動しない場合があります。一度ログアウトして ShojiWM に再ログインするか、端末から手動で `shoji-bar-4 &` を起動してください。
+- 上流既定の `index.tsx` の `shell` プロセスは `runPolicy: "once-per-session"` のため、同じセッション内でホットリロードしただけでは再起動しない場合があります。一度ログアウトして ShojiWM に再ログインするか、端末から手動で `shoji-bar-4 &` を起動してください。この PC は下記のとおり自動再起動設定に変更済みです。
+
+### セッション中にシェル（バー／ドック）が突然消える（2026-11-26 に対処済み）
+
+- **症状**: ログインしてしばらく経ってからバーとドックが消え、再ログインか手動起動するまで戻らない。
+- **原因**: `shoji-bar-4` がセッション中に終了しても、`index.tsx` の shell が `COMPOSITOR.process.once(..., runPolicy: "once-per-session")` だったため自動再起動されなかったこと。2026-11-26 16:36:48 (JST) のセッションログには `wayland client disconnected ... pending_socket_error=Some("Os { code: 104, kind: ConnectionReset, message: \"Connection reset by peer\" }")` が記録されており、通常の切断ではなく相手側が突然消えた状態。Wayland プロトコルエラー・OOM・カーネル SEGV・コアダンプはいずれもなし。`src/main.rs` は `Shell::run()` が Err を返すと stderr に出力して `exit(1)` する作りだが、stderr がどこにも保存されていなかったためエラー内容は特定できていません。
+- **対処（この PC に適用済み）**: `~/.config/shojiwm/src/index.tsx` の shell 定義を以下に変更し、`shoji_wm -r` でホットリロードしました。
+
+  ```ts
+  COMPOSITOR.process.service("shell", {
+    command: `exec ${SHELL} 2>> /home/millfi/.local/state/shoji_wm/shell-stderr.log`,
+    restart: "on-exit",
+  });
+  ```
+
+  - `shojiwm.nix` の自動補正は `const SHELL = ...` の行だけを書き換えるため、この変更は `nixos-rebuild switch` 後も保持されます。
+  - シェルを意図的に kill して自動再起動することを確認済み（ログに `started runtime managed service process_id=shell` が記録される）。
+  - stderr を `~/.local/state/shoji_wm/shell-stderr.log` に追記するようにしたので、次回消えたときはまずここを確認してください。
+- **参考**: 2026-11-22 に手動ビルド版 `shoji-bar-4` の SIGSEGV コアダンプが 1 件ありますが、スタックは `Presenter::drop` → wgpu `Surface::unconfigure` → `eglDestroySurface` → `wl_buffer_destroy` → `wl_map_insert_at`（libwayland-client）で、コンポジッタ終了直後のシャットダウン時に起きた別事象です。EGL / wgpu / Wayland の破棄周りが脆いことは示唆しています。
 
 ### ウィンドウの上部（掴める部分）がトップバーの下に潜り込んで移動できない
 
@@ -242,6 +260,7 @@ sudo nixos-rebuild switch --flake /etc/nixos#<ホスト名>
 ### ログの確認先
 
 - ShojiWM セッションログ: `~/.local/state/shoji_wm/logs/latest.log`
+- `shoji-bar-4` の stderr: `~/.local/state/shoji_wm/shell-stderr.log`（シェルが消えた原因の特定に使用）
 
 ### `shoji-bar-4` 単体でビルド・描画確認したい場合
 
